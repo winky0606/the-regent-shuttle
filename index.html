@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>天鑽 Shuttle Bus 倒數</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    select {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      font-size: 0.95rem;
+      background: #f9f9f9;
+      outline: none;
+    }
+    .route-title { font-size: 1rem; color: #666; margin-bottom: 6px; }
+    .next-time { font-size: 3rem; font-weight: 800; color: #1d1d1f; margin: 0; }
+    .countdown { font-size: 1.3rem; color: #007aff; font-weight: 600; margin-top: 6px; }
+    .next-next { margin-top: 20px; font-size: 0.9rem; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      background-color: #e5f1ff;
+      color: #007aff;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div id="dayBadge" class="badge">讀取中...</div>
+  
+  <div class="controls">
+    <select id="routeSelect" onchange="updateDisplay()">
+      <option value="routeA_go">A線：天鑽 往 南運路</option>
+      <option value="routeA_back">A線：南運路 往 天鑽</option>
+      <option value="routeB_go">B線：天鑽 往 南運路</option>
+      <option value="routeB_back">B線：南運路 往 天鑽</option>
+      <option value="routeC">C線：大埔墟延長線</option>
+    </select>
+  </div>
+
+  <div class="route-title">下一班車開出時間</div>
+  <div class="next-time" id="nextTime">--:--</div>
+  <div class="countdown" id="countdown">計算中...</div>
+  <div class="next-next" id="nextNextTime">再下一班：--:--</div>
+</div>
+
+<script>
+  // 數據整理 (節錄部分關鍵時段作為範例，可自行補齊時間表陣列)
+  const schedules = {
+    weekday: {
+      routeA_go: ["06:30", "06:40", "06:50", "07:00", "07:05", "07:10", "07:20", "07:25", "07:30", "07:40", "07:45", "07:50", "08:00", "08:05", "08:10", "08:20", "08:25", "08:30", "08:40", "08:45", "08:50", "09:00", "09:10", "09:20", "09:27", "09:40", "09:55", "10:10", "10:25", "10:37", "10:55", "11:08", "11:25", "11:40", "11:55", "12:10", "12:22", "12:40", "12:52", "13:10", "13:25", "13:40", "13:55", "14:10", "14:25", "14:40", "14:55", "15:05", "15:15", "15:25", "15:35", "15:45", "15:55", "16:05", "16:15", "16:25", "16:35", "16:45", "16:55", "17:05", "17:15", "17:30", "17:45", "18:00", "18:05", "18:10", "18:20", "18:30", "18:40", "18:50", "19:00", "19:10", "19:20", "19:30", "19:40", "19:50", "20:00", "20:05", "20:20", "20:35", "20:50", "21:05", "21:20", "21:35", "21:50", "22:05", "22:20", "22:30", "22:40", "22:50", "23:00"],
+      routeB_go: ["06:30", "06:35", "06:45", "06:55", "07:05", "07:10", "07:15", "07:20", "07:25", "07:30", "07:35", "07:40", "07:45", "07:50", "07:55", "08:00", "08:05", "08:10", "08:20", "08:25", "08:30", "08:35", "08:45", "08:50", "08:55", "09:05", "09:15", "09:25", "09:35", "09:45", "09:55", "10:05", "10:20", "10:35", "10:50", "11:05", "11:20", "11:35", "11:50", "12:05", "12:20", "12:35", "12:50", "13:05", "13:20", "13:30", "13:40", "13:50", "14:00", "14:10", "14:20", "14:30", "14:40", "14:50", "15:00", "15:10", "15:20", "15:30", "15:40", "15:50", "16:00", "16:10", "16:20", "16:30", "16:40", "16:50", "17:00", "17:10", "17:20", "17:30", "17:35", "17:45", "18:00", "18:10", "18:20", "18:25", "18:30", "18:45", "18:50", "19:00", "19:10", "19:15", "19:25", "19:35", "19:40", "19:50", "20:00", "20:05", "20:15", "20:30", "20:40", "20:50", "21:05", "21:15", "21:20", "21:30", "21:45", "21:55", "22:10", "22:20", "22:30", "22:40", "22:50", "23:00", "23:05", "23:15"],
+      routeC: ["09:15", "10:15", "11:15", "12:15", "13:15", "14:15", "15:15", "16:15", "17:15", "20:15", "21:15", "22:15"]
+    },
+    weekend: {
+      routeA_go: ["06:30", "06:45", "07:00", "07:15", "07:30", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00", "09:10", "09:20", "09:30", "09:40", "09:55", "10:10", "10:25", "10:40", "10:55", "11:10", "11:25", "11:40", "11:55", "12:05", "12:10", "12:15", "12:25", "12:30", "12:35", "12:45", "12:50", "12:55", "13:05", "13:10", "13:15", "13:25", "13:30", "13:35", "13:45", "13:50", "13:55", "14:05", "14:10", "14:15", "14:25", "14:40", "14:55", "15:10", "15:25", "15:40", "15:55", "16:15", "16:30", "16:45", "17:00", "17:10", "17:20", "17:30", "17:40", "18:00", "18:10", "18:20", "18:27", "18:40", "18:50", "18:57", "19:05", "19:25", "19:35", "19:45", "20:00", "20:15", "20:30", "20:45", "21:00", "21:15", "21:30", "21:45", "22:00", "22:15", "22:30", "22:45", "23:00"],
+      routeC: ["06:30", "07:30", "08:30", "09:30", "10:30", "11:30", "14:30", "15:30", "16:30", "19:30", "20:30", "21:30", "22:30"]
+    }
+  };
+
+  function isWeekendOrHoliday() {
+    const day = new Date().getDay();
+    return day === 0 || day === 6; // 0 是星期日，6 是星期六
+  }
+
+  function updateDisplay() {
+    const isWeekend = isWeekendOrHoliday();
+    const dayText = isWeekend ? "星期六、日及公眾假期" : "星期一至五 (非假期)";
+    document.getElementById('dayBadge').innerText = dayText;
+
+    const currentScheduleGroup = isWeekend ? schedules.weekend : schedules.weekday;
+    const selectedRoute = document.getElementById('routeSelect').value;
+    const timeList = currentScheduleGroup[selectedRoute] || currentScheduleGroup['routeA_go'];
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentSeconds = now.getSeconds();
+
+    let upcoming = [];
+
+    for (let timeStr of timeList) {
+      const [h, m] = timeStr.split(':').map(Number);
+      const shuttleMinutes = h * 60 + m;
+
+      if (shuttleMinutes > currentMinutes) {
+        upcoming.push({ timeStr, shuttleMinutes });
+      }
+    }
+
+    if (upcoming.length > 0) {
+      const nextBus = upcoming[0];
+      const diffMinutes = nextBus.shuttleMinutes - currentMinutes - 1;
+      const diffSeconds = 60 - currentSeconds;
+
+      document.getElementById('nextTime').innerText = nextBus.timeStr;
+      
+      if (diffMinutes === 0) {
+        document.getElementById('countdown').innerText = `即將發車 (${diffSeconds} 秒)`;
+      } else {
+        document.getElementById('countdown').innerText = `仲有 ${diffMinutes + 1} 分鐘`;
+      }
+
+      if (upcoming.length > 1) {
+        document.getElementById('nextNextTime').innerText = `再下一班：${upcoming[1].timeStr}`;
+      } else {
+        document.getElementById('nextNextTime').innerText = `尾班車`;
+      }
+    } else {
+      document.getElementById('nextTime').innerText = "--:--";
+      document.getElementById('countdown').innerText = "今日班次已完結";
+      document.getElementById('nextNextTime').innerText = "";
+    }
+  }
+
+  setInterval(updateDisplay, 1000);
+  updateDisplay();
+</script>
+
+</body>
+</html>
